@@ -3,11 +3,15 @@ import random
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from english_words import get_english_words_set
+from PyDictionary import PyDictionary
+from dataclasses import dataclass
 
-lower_set = get_english_words_set(['web2'], lower=True)
-words = list(filter(lambda x: len(x) == 5, lower_set))
+
+words = list(filter(lambda x: len(x) == 5, open('words.txt', 'r').read().split('\n')))
 driver = webdriver.Chrome()
+dictionary=PyDictionary()
+
+## TODO: refactor into board
 possibilities = {
     1:  list('abcdefghijklmnopqrstuvwxyz'),
     2:  list('abcdefghijklmnopqrstuvwxyz'),
@@ -15,6 +19,15 @@ possibilities = {
     4:  list('abcdefghijklmnopqrstuvwxyz'),
     5:  list('abcdefghijklmnopqrstuvwxyz'),
 }
+## TODO: refactor into board
+sticky_chars = {
+    1: "",
+    2: "",
+    3: "",
+    4: "",
+    5: "",
+}
+must_contain = []
 body = None
 
 class Letter:
@@ -25,18 +38,17 @@ class Letter:
         self.state = state
         self.character = character
 
-    def set_state(state):
+    def set_state(self, state):
         self.state = state
 
-    def set_character(character):
+    def set_character(self, character):
         self.character = character
 
 class Row:
-    word = None
-    letters = []
     def __init__(self, row):
         row_word = ""
         elements = row.find_elements(By.XPATH, './div/*')
+        self.letters = []
         for element in elements:
             row_word = row_word + element.text
             elem_state = element.get_attribute('data-state')
@@ -79,19 +91,27 @@ def make_guess(word):
     time.sleep(3)
 
 def calc_next_guess():
-    board = get_current_board()
     global possibilities
+    board = get_current_board()
     for i in range(1, 7):
         row = board.rows[i]
         if not row.letters[0].state == 'empty':
-            for i in range(1,6):
-                l = row.letters[i - 1]
-                if l.state == 'tbd' or l.state == 'absent':
+            for j in range(1,6):
+                l = row.letters[j - 1]
+                if l.state == 'absent':
                     delete_char(l.character)
                 if l.state == 'present':
-                    delete_char_in(i, l.character)
+                    delete_char_in(j, l.character)
+                if l.state == 'correct':
+                    add_sticky_char(j, l.character)
     apply_word_filter()
     return get_rand_word()
+
+def add_sticky_char(position, char):
+    global sticky_chars
+    global possibilities
+    sticky_chars[position] = char
+    possibilities[position] = []
 
 def get_rand_word():
     global words
@@ -101,8 +121,13 @@ def get_rand_word():
 def apply_word_filter():
     global possibilities
     global words 
+    global must_contain
     for i in range(1, 6):
+        if not sticky_chars[i] == "":
+            possibilities[i].insert(0, str.lower(sticky_chars[i]))
         words = list(filter(lambda x: filter_place(i, x, possibilities[i]), words))
+    for c in must_contain:
+        words = list(filter(lambda x: c in x, words))
 
 def filter_place(place, word, chars):
     if word[place - 1] not in chars:
@@ -111,6 +136,7 @@ def filter_place(place, word, chars):
 
 def delete_char(char):
     global possibilities
+    global sticky_chars
     char = str.lower(char)
     for i in range(1, 6):
         if char in possibilities[i]:
@@ -118,11 +144,12 @@ def delete_char(char):
 
 def delete_char_in(position, char):
     global possibilities
+    global sticky_chars
+    global must_contain
     char = str.lower(char)
+    must_contain.append(char)
     if char in possibilities[position]:
         possibilities[position].remove(char)
-
-
 
 def get_current_board():
     global driver 
