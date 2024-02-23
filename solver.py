@@ -1,12 +1,24 @@
+import time
+import random
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import time
+from english_words import get_english_words_set
 
+lower_set = get_english_words_set(['web2'], lower=True)
+words = list(filter(lambda x: len(x) == 5, lower_set))
 driver = webdriver.Chrome()
+possibilities = {
+    1:  list('abcdefghijklmnopqrstuvwxyz'),
+    2:  list('abcdefghijklmnopqrstuvwxyz'),
+    3:  list('abcdefghijklmnopqrstuvwxyz'),
+    4:  list('abcdefghijklmnopqrstuvwxyz'),
+    5:  list('abcdefghijklmnopqrstuvwxyz'),
+}
+body = None
 
 class Letter:
-    state = "empty"
+    state = 'empty'
     character = ''
 
     def __init__(self, state, character):
@@ -27,7 +39,8 @@ class Row:
         elements = row.find_elements(By.XPATH, './div/*')
         for element in elements:
             row_word = row_word + element.text
-            self.letters.append(Letter(element.get_attribute('data-state'), element.text))
+            elem_state = element.get_attribute('data-state')
+            self.letters.append(Letter(elem_state, element.text))
         self.word = row_word
 
 class Board:
@@ -47,26 +60,99 @@ class Board:
             print(str(i))
             print(self.rows[i].word)
 
+def make_rand_guess():
+    global driver
+    global words
+    global body
+    random.shuffle(words)
+    body.send_keys(words[0])
+    time.sleep(1)
+    body.send_keys(Keys.RETURN)
+    time.sleep(3)
+     
+def make_guess(word):
+    global driver
+    global body
+    body.send_keys(word)
+    time.sleep(1)
+    body.send_keys(Keys.RETURN)
+    time.sleep(3)
+
+def calc_next_guess():
+    board = get_current_board()
+    global possibilities
+    for i in range(1, 7):
+        row = board.rows[i]
+        if not row.letters[0].state == 'empty':
+            for i in range(1,6):
+                l = row.letters[i - 1]
+                if l.state == 'tbd' or l.state == 'absent':
+                    delete_char(l.character)
+                if l.state == 'present':
+                    delete_char_in(i, l.character)
+    apply_word_filter()
+    return get_rand_word()
+
+def get_rand_word():
+    global words
+    random.shuffle(words)
+    return words[0]
+
+def apply_word_filter():
+    global possibilities
+    global words 
+    for i in range(1, 6):
+        words = list(filter(lambda x: filter_place(i, x, possibilities[i]), words))
+
+def filter_place(place, word, chars):
+    if word[place - 1] not in chars:
+        return False
+    return True
+
+def delete_char(char):
+    global possibilities
+    char = str.lower(char)
+    for i in range(1, 6):
+        if char in possibilities[i]:
+            possibilities[i].remove(char)
+
+def delete_char_in(position, char):
+    global possibilities
+    char = str.lower(char)
+    if char in possibilities[position]:
+        possibilities[position].remove(char)
+
+
 
 def get_current_board():
     global driver 
     global board_state
     board_div = driver.find_element(By.XPATH, '//*[@id="wordle-app-game"]/div[1]/div')
     return Board(board_div, 1)
-    print("TODO")
 
 def main():
     global driver
+    global body
+    # navigate to game
     driver.get("https://www.nytimes.com/games/wordle/index.html")
     driver.find_element(By.XPATH, "/html/body/div/div/div/div/div/div[2]/button[2]").click()
     time.sleep(1)
     driver.find_element(By.XPATH, "/html/body/div/div/dialog/div/div/button").click()
     body = driver.find_element(By.XPATH, "html/body")
     time.sleep(1)
-    body.send_keys("arise", Keys.RETURN)
-    time.sleep(3)
-    body.send_keys("match", Keys.RETURN)
-    current_board = get_current_board()
+    # loaded into game at this point
+    make_rand_guess()
+    next = calc_next_guess()
+    make_guess(next)
+    next = calc_next_guess()
+    make_guess(next)
+    next = calc_next_guess()
+    make_guess(next)
+    next = calc_next_guess()
+    make_guess(next)
+    next = calc_next_guess()
+    make_guess(next)
+
     time.sleep(100)
 
 if __name__ == "__main__":
