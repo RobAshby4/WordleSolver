@@ -81,7 +81,7 @@ def make_rand_guess():
     time.sleep(1)
     body.send_keys(Keys.RETURN)
     time.sleep(3)
-     
+
 def make_guess(word):
     global driver
     global body
@@ -120,7 +120,7 @@ def get_rand_word():
 
 def apply_word_filter():
     global possibilities
-    global words 
+    global words
     global must_contain
     for i in range(1, 6):
         if not sticky_chars[i] == "":
@@ -152,7 +152,7 @@ def delete_char_in(position, char):
         possibilities[position].remove(char)
 
 def get_current_board():
-    global driver 
+    global driver
     global board_state
     board_div = driver.find_element(By.XPATH, '//*[@id="wordle-app-game"]/div[1]/div')
     return Board(board_div, 1)
